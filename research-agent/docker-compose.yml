@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  research-agent:
+    build: .
+    container_name: research-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+    volumes:
+      - .:/app
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Optional: Add a PostgreSQL service if needed for persistence
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: research-agent-db
+  #   environment:
+  #     POSTGRES_USER: research
+  #     POSTGRES_PASSWORD: research_password
+  #     POSTGRES_DB: research_agent
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #
+  # volumes:
+  #   postgres_data:
