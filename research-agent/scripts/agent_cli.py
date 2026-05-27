@@ -340,7 +340,11 @@ def run_fetch_youtube_transcript(args: FetchYoutubeTranscriptArgs) -> str:
         try:
             fetched_at = datetime.now()
             video_id = _extract_id(args.video)
-            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[args.language])
+
+            # v1.0+ instance-based API
+            ytt_api = YouTubeTranscriptApi()
+            fetched = ytt_api.fetch(video_id, languages=[args.language])
+            transcript = fetched.to_raw_data()  # list of {text, start, duration}
 
             if args.include_timestamps:
                 content = "\n".join(
@@ -362,12 +366,6 @@ def run_fetch_youtube_transcript(args: FetchYoutubeTranscriptArgs) -> str:
             return json.dumps([result.model_dump(mode="json")])
         except Exception as e:
             return json.dumps({"error": f"{type(e).__name__}: {e}", "tool": "fetch_youtube_transcript"})
-
-    future = _EXECUTOR.submit(_fetch)
-    try:
-        return future.result(timeout=15.0)
-    except FutureTimeoutError:
-        return json.dumps({"error": "Timeout after 15s", "tool": "fetch_youtube_transcript"})
 
 
 def run_calculator(args: CalculatorArgs) -> str:
@@ -394,12 +392,14 @@ TOOL_DISPATCH = {
 
 def dispatch_tool(name: str, raw_args: dict) -> str:
     if name not in TOOL_MODELS:
-        return _error_payload(name, f"Unknown tool: {name}")
+        return f"[error] Unknown tool: {name}"
     try:
         validated = TOOL_MODELS[name].model_validate(raw_args)
     except ValidationError as e:
-        return _error_payload(name, f"validation error: {e.errors()}")
-    return TOOL_DISPATCH[name](validated)
+        return f"[validation error] {e.errors()}"
+    result = TOOL_DISPATCH[name](validated)
+    print(f"[TOOL DEBUG] {name}({raw_args}) -> {result[:300]}", file=sys.stderr)  # ← ADD
+    return result
 
 
 def get_system_prompt() -> str:
