@@ -235,15 +235,139 @@ def run_search_web(args: SearchWebArgs) -> str:
 
 
 def run_search_arxiv(args: SearchArxivArgs) -> str:
-    return "[NOT IMPLEMENTED] search_arxiv will be wired in Phase 3."
+    """arXiv search via the `arxiv` library. Returns JSON list[ToolResult]."""
+    try:
+        import arxiv
+    except ImportError:
+        return json.dumps({"error": "arxiv not installed", "tool": "search_arxiv"})
+
+    def _search():
+        try:
+            fetched_at = datetime.now()
+            query = f"cat:{args.category} AND ({args.query})" if args.category else args.query
+            sort_map = {
+                "relevance": arxiv.SortCriterion.Relevance,
+                "submittedDate": arxiv.SortCriterion.SubmittedDate,
+                "lastUpdatedDate": arxiv.SortCriterion.LastUpdatedDate,
+            }
+            client = arxiv.Client()
+            search = arxiv.Search(query=query, max_results=args.max_results, sort_by=sort_map[args.sort_by])
+
+            results = []
+            for paper in client.results(search):
+                pub = paper.published.strftime("%Y-%m-%d")
+                if args.date_from and pub < args.date_from: continue
+                if args.date_to and pub > args.date_to: continue
+                authors = ", ".join(a.name for a in paper.authors[:3])
+                if len(paper.authors) > 3: authors += ", et al."
+                results.append(ToolResult(
+                    title=paper.title,
+                    snippet=f"{authors} ({paper.published.year}). {paper.summary[:400]}",
+                    url=paper.entry_id,
+                    timestamp=fetched_at,
+                ))
+            if not results:
+                return json.dumps({"error": "No results found.", "tool": "search_arxiv"})
+            return json.dumps([r.model_dump(mode="json") for r in results])
+        except Exception as e:
+            return json.dumps({"error": f"{type(e).__name__}: {e}", "tool": "search_arxiv"})
+
+    future = _EXECUTOR.submit(_search)
+    try:
+        return future.result(timeout=15.0)  # arxiv API is slow
+    except FutureTimeoutError:
+        return json.dumps({"error": "Timeout after 15s", "tool": "search_arxiv"})
 
 
 def run_search_wikipedia(args: SearchWikipediaArgs) -> str:
-    return "[NOT IMPLEMENTED] search_wikipedia will be wired in Phase 3."
+    """Wikipedia summary via `wikipedia-api`. Returns JSON list[ToolResult]."""
+    try:
+        import wikipediaapi
+    except ImportError:
+        return json.dumps({"error": "wikipedia-api not installed", "tool": "search_wikipedia"})
+
+    def _search():
+        try:
+            fetched_at = datetime.now()
+            wiki = wikipediaapi.Wikipedia(
+                user_agent="ResearchAgent/0.1 (educational)",
+                language=args.language,
+            )
+            page = wiki.page(args.query)
+            if not page.exists():
+                return json.dumps({"error": f"No article for '{args.query}'", "tool": "search_wikipedia"})
+
+            if args.summary_length == "short":
+                content = page.summary.split("\n")[0]
+            elif args.summary_length == "medium":
+                content = page.summary
+            else:
+                content = page.text[:10000]  # cap to avoid context blowup
+
+            result = ToolResult(
+                title=page.title,
+                snippet=content,
+                url=page.fullurl,
+                timestamp=fetched_at,
+            )
+            return json.dumps([result.model_dump(mode="json")])
+        except Exception as e:
+            return json.dumps({"error": f"{type(e).__name__}: {e}", "tool": "search_wikipedia"})
+
+    future = _EXECUTOR.submit(_search)
+    try:
+        return future.result(timeout=8.0)
+    except FutureTimeoutError:
+        return json.dumps({"error": "Timeout after 8s", "tool": "search_wikipedia"})
 
 
 def run_fetch_youtube_transcript(args: FetchYoutubeTranscriptArgs) -> str:
-    return "[NOT IMPLEMENTED] fetch_youtube_transcript will be wired in Phase 3."
+    """YouTube transcript via `youtube-transcript-api`. Returns JSON list[ToolResult]."""
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+    except ImportError:
+        return json.dumps({"error": "youtube-transcript-api not installed", "tool": "fetch_youtube_transcript"})
+
+    def _extract_id(video: str) -> str:
+        if len(video) == 11 and "/" not in video and "." not in video:
+            return video
+        import re
+        m = re.search(r"(?:v=|youtu\.be/|/shorts/|/embed/)([A-Za-z0-9_-]{11})", video)
+        if m: return m.group(1)
+        raise ValueError(f"Could not extract video ID from: {video}")
+
+    def _fetch():
+        try:
+            fetched_at = datetime.now()
+            video_id = _extract_id(args.video)
+            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=[args.language])
+
+            if args.include_timestamps:
+                content = "\n".join(
+                    f"[{int(t['start']//60):02d}:{int(t['start']%60):02d}] {t['text']}"
+                    for t in transcript
+                )
+            else:
+                content = " ".join(t["text"] for t in transcript)
+
+            if len(content) > 15000:
+                content = content[:15000] + " ... [truncated]"
+
+            result = ToolResult(
+                title=f"YouTube video {video_id}",
+                snippet=content,
+                url=f"https://youtube.com/watch?v={video_id}",
+                timestamp=fetched_at,
+            )
+            return json.dumps([result.model_dump(mode="json")])
+        except Exception as e:
+            return json.dumps({"error": f"{type(e).__name__}: {e}", "tool": "fetch_youtube_transcript"})
+
+    future = _EXECUTOR.submit(_fetch)
+    try:
+        return future.result(timeout=15.0)
+    except FutureTimeoutError:
+        return json.dumps({"error": "Timeout after 15s", "tool": "fetch_youtube_transcript"})
 
 
 def run_calculator(args: CalculatorArgs) -> str:
@@ -289,7 +413,7 @@ def get_system_prompt() -> str:
         f"search_web for everything else. Call tools one at a time and reason about results before "
         f"deciding the next step.\n\n"
         f"TOOL OUTPUT CONTRACT:\n"
-        f"Retrieval tools (search_web, search_arxiv, search_wikipedia) return a JSON array of "
+        f"Retrieval tools (search_web, search_arxiv, search_wikipedia, fetch_youtube_transcript) return a JSON array of "
         f"ToolResult objects. Each object has: 'title', 'snippet', 'url', 'source', 'timestamp'. "
         f"The 'url' field is the citation anchor — you MUST cite every factual claim inline using "
         f"the matching url, in the form (source: <url>) immediately after the claim. "
