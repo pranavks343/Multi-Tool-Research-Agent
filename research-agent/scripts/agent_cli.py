@@ -261,6 +261,7 @@ def run_search_arxiv(args: SearchArxivArgs) -> str:
                 authors = ", ".join(a.name for a in paper.authors[:3])
                 if len(paper.authors) > 3: authors += ", et al."
                 results.append(ToolResult(
+                    source="arXiv",
                     title=paper.title,
                     snippet=f"{authors} ({paper.published.year}). {paper.summary[:400]}",
                     url=paper.entry_id,
@@ -305,6 +306,7 @@ def run_search_wikipedia(args: SearchWikipediaArgs) -> str:
                 content = page.text[:10000]  # cap to avoid context blowup
 
             result = ToolResult(
+                source="Wikipedia",
                 title=page.title,
                 snippet=content,
                 url=page.fullurl,
@@ -344,8 +346,7 @@ def run_fetch_youtube_transcript(args: FetchYoutubeTranscriptArgs) -> str:
             # v1.0+ instance-based API
             ytt_api = YouTubeTranscriptApi()
             fetched = ytt_api.fetch(video_id, languages=[args.language])
-            transcript = fetched.to_raw_data()  # list of {text, start, duration}
-
+            transcript = fetched.to_raw_data()
             if args.include_timestamps:
                 content = "\n".join(
                     f"[{int(t['start']//60):02d}:{int(t['start']%60):02d}] {t['text']}"
@@ -358,6 +359,7 @@ def run_fetch_youtube_transcript(args: FetchYoutubeTranscriptArgs) -> str:
                 content = content[:15000] + " ... [truncated]"
 
             result = ToolResult(
+                source="YouTube",
                 title=f"YouTube video {video_id}",
                 snippet=content,
                 url=f"https://youtube.com/watch?v={video_id}",
@@ -366,6 +368,12 @@ def run_fetch_youtube_transcript(args: FetchYoutubeTranscriptArgs) -> str:
             return json.dumps([result.model_dump(mode="json")])
         except Exception as e:
             return json.dumps({"error": f"{type(e).__name__}: {e}", "tool": "fetch_youtube_transcript"})
+
+    future = _EXECUTOR.submit(_fetch)
+    try:
+        return future.result(timeout=15.0)
+    except FutureTimeoutError:
+        return json.dumps({"error": "Timeout after 15s", "tool": "fetch_youtube_transcript"})
 
 
 def run_calculator(args: CalculatorArgs) -> str:
@@ -398,7 +406,9 @@ def dispatch_tool(name: str, raw_args: dict) -> str:
     except ValidationError as e:
         return f"[validation error] {e.errors()}"
     result = TOOL_DISPATCH[name](validated)
-    print(f"[TOOL DEBUG] {name}({raw_args}) -> {result[:300]}", file=sys.stderr)  # ← ADD
+    if result is None:
+        result = json.dumps({"error": f"{name} returned None", "tool": name})
+    print(f"[TOOL DEBUG] {name}({raw_args}) -> {result[:300]}", file=sys.stderr)
     return result
 
 
