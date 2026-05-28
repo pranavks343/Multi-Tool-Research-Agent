@@ -1,1 +1,1 @@
-"""Agent module."""
+"""Agent package: prompts + the agentic loop."""
