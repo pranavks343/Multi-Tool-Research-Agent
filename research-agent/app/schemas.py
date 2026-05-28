@@ -12,9 +12,6 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
-# ===========================================================================
-# Tool argument schemas (model-facing input contract)
-# ===========================================================================
 
 class SearchWebArgs(BaseModel):
     query: str = Field(..., description="The search query. Free-form natural language.")
@@ -125,9 +122,6 @@ class CalculatorArgs(BaseModel):
     )
 
 
-# ===========================================================================
-# Output envelope (uniform across every retrieval tool)
-# ===========================================================================
 
 class ToolResult(BaseModel):
     title: str = Field(..., description="Headline or display name of the hit.")

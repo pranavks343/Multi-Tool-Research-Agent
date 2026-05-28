@@ -1,3 +1,4 @@
+# scripts/agent_cli.py
 """CLI entry point for the multi-tool research agent.
 
 Run from the project root:
@@ -13,15 +14,20 @@ from pathlib import Path
 # (Running a script puts scripts/ on sys.path, not the project root, so we add it.)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.agent.executor import run_agent  # noqa: E402  (import after sys.path tweak)
+from app.agent.executor import run_agent          # noqa: E402
+from app.memory import ConversationMemory   # noqa: E402
+from app.agent.prompts import get_system_prompt   # noqa: E402
 
 
 def main() -> None:
     if len(sys.argv) > 1:
+        # Single-shot: no memory passed → run_agent makes its own and discards it.
         print(run_agent(" ".join(sys.argv[1:])))
         return
 
     print("Agent ready. Type a question, or 'exit' to quit.\n")
+    # Created ONCE, before the loop → outlives each turn → conversation persists.
+    memory = ConversationMemory({"role": "system", "content": get_system_prompt()})
     while True:
         try:
             q = input("you > ").strip()
@@ -32,8 +38,4 @@ def main() -> None:
             break
         if not q:
             continue
-        print(f"agent > {run_agent(q)}\n")
-
-
-if __name__ == "__main__":
-    main()
+        print(f"agent > {run_agent(q, memory)}\n")   # same instance every turn
