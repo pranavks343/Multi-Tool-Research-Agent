@@ -32,6 +32,12 @@ YOUTUBE_TIMEOUT = 15.0
 # CPython — for a true hard kill of untrusted code you'd need a subprocess.
 _EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
+# Separate pool for running a turn's tool calls concurrently. MUST be distinct
+# from _EXECUTOR: each tool submits its own work to _EXECUTOR for its timeout
+# wrapper, so driving the dispatch fan-out from the *same* pool would let the
+# outer tasks starve the inner timeout tasks → every tool would hit its timeout.
+_DISPATCH_EXECUTOR = ThreadPoolExecutor(max_workers=8)
+
 # DuckDuckGo's `timelimit` arg uses short codes; the model-facing schema uses long
 # names. Translating between the two contracts is the tool's job, not the model's.
 _RECENCY_MAP = {"day": "d", "week": "w", "month": "m", "year": "y"}

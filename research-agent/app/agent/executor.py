@@ -6,7 +6,7 @@ import json
 
 from app.memory import ConversationMemory
 from app.agent.prompts import get_system_prompt
-from app.config import MAX_TURNS, MODEL, client
+from app.config import MAX_TURNS, MODEL, client, _DISPATCH_EXECUTOR
 from app.schemas import error_payload
 from app.tools import TOOLS, dispatch_tool
 
@@ -36,15 +36,22 @@ def run_agent(
             # Convert the SDK object to a plain dict so ConversationMemory's
             # dict-based logic (.get / token counting) works on it.
             memory.add(msg.model_dump(exclude_none=True))
-            for tc in msg.tool_calls:
+
+            # Run all tool calls in this turn concurrently. They're independent
+            # network I/O, so wall-clock drops from sum(timeouts) to max(timeout).
+            def _run_one(tc):
                 name = tc.function.name
                 try:
                     raw_args = json.loads(tc.function.arguments)
                 except json.JSONDecodeError as e:
-                    result = error_payload(name, f"Invalid JSON in tool args: {e}")
-                else:
-                    result = dispatch_tool(name, raw_args)
+                    return error_payload(name, f"Invalid JSON in tool args: {e}")
+                return dispatch_tool(name, raw_args)
 
+            results = list(_DISPATCH_EXECUTOR.map(_run_one, msg.tool_calls))
+
+            # Append in the model's original order — tool results must follow the
+            # assistant tool_calls message, matched by tool_call_id.
+            for tc, result in zip(msg.tool_calls, results):
                 memory.add({
                     "role": "tool",
                     "tool_call_id": tc.id,

@@ -37,7 +37,6 @@ def pydantic_to_openai_tool(name: str, description: str, model: type[BaseModel])
         "function": {"name": name, "description": description, "parameters": schema},
     }
 
-
 TOOLS = [
     pydantic_to_openai_tool(
         name="search_web",
