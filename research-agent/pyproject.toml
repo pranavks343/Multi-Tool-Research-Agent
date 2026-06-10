@@ -2,11 +2,26 @@
 requires = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
 
+
+[tool.uv]
+package = false
+
 [project]
 name = "research-agent"
 version = "0.1.0"
 description = "Multi-Tool Research Agent with tool selection and response caching"
 requires-python = ">=3.11"
+dependencies = [
+    "arxiv>=4.0.0",
+    "ddgs>=9.14.4",
+    "numexpr>=2.14.1",
+    "openai>=2.38.0",
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    "tiktoken>=0.13.0",
+    "wikipedia-api>=0.15.0",
+    "youtube-transcript-api>=1.2.4",
+]
 
 [tool.black]
 line-length = 100

@@ -35,7 +35,7 @@ def run_agent(
         if msg.tool_calls:
             # Convert the SDK object to a plain dict so ConversationMemory's
             # dict-based logic (.get / token counting) works on it.
-            memory.add(msg.model_dump())
+            memory.add(msg.model_dump(exclude_none=True))
             for tc in msg.tool_calls:
                 name = tc.function.name
                 try:

@@ -5,6 +5,11 @@ _ENCODING = tiktoken.encoding_for_model("gpt-4o-mini")
 
 def count_tokens(messages: list[dict]) -> int:
     """Rough token count of a message list. Good enough for budgeting."""
+    # TODO: only `content` is encoded here. Assistant messages carrying
+    # `tool_calls` (with content=None) count as ~4 tokens, but the real API
+    # cost includes the serialized tool_calls JSON. This makes the budget run
+    # ~10-30% optimistic — acceptable for a sliding-window heuristic, but
+    # encode tool_calls too if tighter accuracy is ever needed.
     total = 0
     for m in messages:
         content = m.get("content") or ""
