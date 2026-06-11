@@ -10,6 +10,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 from dotenv import find_dotenv, load_dotenv
 from openai import OpenAI
+from pathlib import Path
+CACHE_PATH = str(Path(__file__).resolve().parent.parent / "tool_cache.db")
+CACHE_TTL_SECONDS = 24 * 60 * 60   # 24h per the spec
 
 # Load .env BEFORE constructing the OpenAI client so OPENAI_API_KEY is available.
 load_dotenv(find_dotenv())

@@ -11,6 +11,7 @@ import sys
 
 from pydantic import BaseModel, ValidationError
 
+from app import cache
 from app.config import DEBUG
 from app.schemas import (
     CalculatorArgs,
@@ -97,17 +98,54 @@ TOOL_DISPATCH = {
 }
 
 
+def _is_error(result: str) -> bool:
+    """True if a tool result is a failure that must NOT be cached.
+
+    Two failure shapes exist across the tools:
+      - JSON tools return ``{"error": ..., "tool": ...}`` (see error_payload).
+      - The calculator returns bare ``[error] ...`` / ``[calculator error] ...`` strings.
+
+    The prefix check is deliberately narrow: the search tools return a JSON *array*
+    (``[{...}]``) on success, which also starts with ``[`` — so a broad
+    ``startswith("[")`` would wrongly treat every successful search as an error and
+    never cache it.
+    """
+    if result.startswith(("[error]", "[calculator error]")):
+        return True
+    try:
+        parsed = json.loads(result)
+    except (json.JSONDecodeError, ValueError):
+        return False
+    return isinstance(parsed, dict) and "error" in parsed
+
+
 def dispatch_tool(name: str, raw_args: dict) -> str:
-    """Validate raw args against the Pydantic schema, then run the tool."""
+    """Validate raw args against the Pydantic schema, check the cache, then run the tool."""
     if name not in TOOL_MODELS:
         return f"[error] Unknown tool: {name}"
     try:
         validated = TOOL_MODELS[name].model_validate(raw_args)
     except ValidationError as e:
         return f"[validation error] {e.errors()}"
+
+    # Cache on the *validated* args: model_dump() normalizes defaults and types,
+    # so cosmetically-different-but-equivalent calls share one entry.
+    cache_args = validated.model_dump()
+
+    # A cache hit skips the tool entirely.
+    cached = cache.get(name, cache_args)
+    if cached is not None:
+        return cached
+
     result = TOOL_DISPATCH[name](validated)
     if result is None:
         result = json.dumps({"error": f"{name} returned None", "tool": name})
+
+    # Store only successes — never poison the cache with a transient failure,
+    # or every identical query would replay it for the full TTL.
+    if not _is_error(result):
+        cache.set(name, cache_args, result)
+
     if DEBUG:
         print(f"[TOOL DEBUG] {name}({raw_args}) -> {result[:300]}", file=sys.stderr)
     return result
