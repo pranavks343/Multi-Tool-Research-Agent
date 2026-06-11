@@ -39,7 +39,7 @@ def main() -> None:
         if not q:
             continue
         print(f"agent > {run_agent(q, memory)}\n")   # same instance every turn
-
+[]
 
 
 if __name__ == "__main__":
