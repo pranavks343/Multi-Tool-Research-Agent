@@ -16,7 +16,9 @@ def run_agent(
     user_message: str,
     memory: ConversationMemory | None = None,
     max_turns: int = MAX_TURNS,
+    called_tools: list[str] | None = None,
 ) -> str:
+    
     memory = memory or ConversationMemory(
         {"role": "system", "content": get_system_prompt()}
     )
@@ -54,6 +56,8 @@ def run_agent(
             # Per-tool timeouts still live inside each tool's own _EXECUTOR.
             for tc in msg.tool_calls:
                 name = tc.function.name
+                if called_tools is not None:
+                    called_tools.append(name)
                 try:
                     raw_args = json.loads(tc.function.arguments)
                 except json.JSONDecodeError as e:

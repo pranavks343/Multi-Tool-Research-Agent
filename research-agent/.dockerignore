@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+tool_cache.db
+eval/
+.git/

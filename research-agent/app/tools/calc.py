@@ -1,5 +1,6 @@
 """Safe math evaluator — via `numexpr` (no Python code-execution path)."""
 from __future__ import annotations
+import math
 
 from app.schemas import CalculatorArgs
 
@@ -18,6 +19,7 @@ def run_calculator(args: CalculatorArgs) -> str:
         return "[error] numexpr not installed (uv add numexpr)"
     try:
         expr = args.expression.replace("^", "**")  # treat ^ as exponent, not XOR
+        expr = expr.replace("pi", str(math.pi)).replace("e", str(math.e))
         result = numexpr.evaluate(expr)
         return str(round(float(result), args.precision))
     except Exception as e:

@@ -1,1 +1,25 @@
-{}
+{"question": "What is 2 + 2?", "expected_tool": "calculator"}
+{"question": "Calculate the square root of 144 plus 17 times 3", "expected_tool": "calculator"}
+{"question": "What is 15% of 2480?", "expected_tool": "calculator"}
+{"question": "Compute 2 to the power of 16", "expected_tool": "calculator"}
+{"question": "What is sin(pi/2) + cos(0)?", "expected_tool": "calculator"}
+{"question": "What's the latest news on the EU AI Act?", "expected_tool": "search_web"}
+{"question": "What did the Federal Reserve announce this week?", "expected_tool": "search_web"}
+{"question": "Current price of Bitcoin today", "expected_tool": "search_web"}
+{"question": "Who won the most recent Formula 1 race?", "expected_tool": "search_web"}
+{"question": "What are the newest features in the latest iPhone?", "expected_tool": "search_web"}
+{"question": "Find arXiv papers on quantum error correction", "expected_tool": "search_arxiv"}
+{"question": "Search for recent academic preprints about transformer architectures", "expected_tool": "search_arxiv"}
+{"question": "Show me research papers by Yoshua Bengio on deep learning", "expected_tool": "search_arxiv"}
+{"question": "What does the literature on diffusion models say? Find me preprints.", "expected_tool": "search_arxiv"}
+{"question": "Latest arXiv submissions on reinforcement learning from human feedback", "expected_tool": "search_arxiv"}
+{"question": "Tell me about Marie Curie using Wikipedia", "expected_tool": "search_wikipedia"}
+{"question": "Give me the Wikipedia summary of the French Revolution", "expected_tool": "search_wikipedia"}
+{"question": "What is photosynthesis? Look it up on Wikipedia.", "expected_tool": "search_wikipedia"}
+{"question": "Wikipedia article on the Roman Empire", "expected_tool": "search_wikipedia"}
+{"question": "Summarize this video: https://www.youtube.com/watch?v=dQw4w9WgXcQ", "expected_tool": "fetch_youtube_transcript"}
+{"question": "Get the transcript of https://youtu.be/jNQXAC9IVRw", "expected_tool": "fetch_youtube_transcript"}
+{"question": "What does the YouTube video at youtube.com/watch?v=9bZkp7q19f0 talk about?", "expected_tool": "fetch_youtube_transcript"}
+{"question": "Hello there", "expected_tool": "none"}
+{"question": "What is the capital of France?", "expected_tool": "none"}
+{"question": "Tell me about Isaac Newton's contributions to physics", "expected_tool": ["search_wikipedia", "search_web"]}

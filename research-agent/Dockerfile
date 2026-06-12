@@ -1,24 +1,19 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Install uv (fast, matches your local workflow)
+RUN pip install --no-cache-dir uv
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency manifests first — layer caching: deps only reinstall when these change
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
-# Copy application code
-COPY . .
+# Copy the application
+COPY app/ ./app/
+COPY scripts/ ./scripts/
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-
-# Expose port for FastAPI
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Bind to 0.0.0.0 so the container is reachable from outside
+CMD ["uv", "run", "uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
